@@ -46,6 +46,10 @@ p{margin:0 0 10px}
 button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 .score{font-size:2.6rem;font-weight:800;color:var(--brand);margin:6px 0}
 .hidden{display:none}
+.identity{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:18px 16px;margin-bottom:16px}
+.identity label{display:block;font-weight:700;margin:12px 0 4px}
+.identity input{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:2px solid var(--line);border-radius:10px;padding:10px}
+.status{font-size:.95rem;margin:8px 0;color:var(--mute)}
 </style>
 </head>
 <body>
@@ -60,7 +64,17 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 <div class="term"><h3>Жасанды интеллект</h3><p>Бұл – көп мысалға қарап үйренетін және адамға көмектесетін компьютерлік жүйе. Ол мәтінді аударады, сұрақтарға жауап береді.</p><p class="ex">Мысалы: дауыстық көмекші, онлайн аудармашы. Оның жауабын әрқашан тексеру керек.</p></div>
 </section>
 
-<section class="quiz" aria-live="polite">
+<section class="identity" id="identity">
+<h2>Тестті бастау</h2>
+<label for="studentName">Оқушының аты-жөні</label>
+<input id="studentName" type="text" maxlength="100" autocomplete="name" required placeholder="Аты-жөніңді жаз">
+<label for="studentClass">Сыныбы</label>
+<input id="studentClass" type="text" maxlength="30" required placeholder="Мысалы: 5А">
+<p class="status">Осы мәліметтер және тест ұпайы мұғалімнің кестесіне жіберіледі.</p>
+<button class="btn main" id="start" type="button">Тестті бастау</button>
+<p id="identityError" class="status" role="alert"></p>
+</section>
+<section class="quiz hidden" aria-live="polite">
 <div id="qa">
 <div class="bar"><span id="num"></span><span id="sc"></span></div>
 <div class="track"><div class="fill" id="fill"></div></div>
@@ -72,6 +86,7 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 <h2>Тест аяқталды!</h2>
 <div class="score" id="score"></div>
 <p id="msg"></p>
+<p class="status" id="sendStatus" role="status"></p>
 </div>
 <div class="nav">
 <button class="btn" id="prev">Алдыңғы сұрақ</button>
@@ -79,6 +94,12 @@ button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 <button class="btn" id="reset">Қайта бастау</button>
 </div>
 </section>
+<iframe id="resultFrame" name="resultFrame" title="Нәтижені жіберу" hidden></iframe>
+<form id="resultForm" method="POST" target="resultFrame" action="https://script.google.com/macros/s/AKfycbxYv0huz2PupZlKRTpZ4HhzVrWZA3eB1ywwF4NwnBwKM4ScYFmGtRg0Wyl0_wSq8Txt/exec" hidden>
+<input type="hidden" name="name" id="sendName">
+<input type="hidden" name="studentClass" id="sendClass">
+<input type="hidden" name="score" id="sendScore">
+</form>
 </main>
 
 <script>
@@ -95,9 +116,27 @@ var Q=[
 ["Жасанды интеллекттің жауабымен қалай жұмыс істеу керек?",["Тексермей, сене береміз","Тексеріп, басқа дерекпен салыстырамыз","Құпия сөзімізді жазып жібереміз","Тапсырманы сол күйі көшіріп аламыз"],1,"Жасанды интеллект қателесуі мүмкін. Сондықтан жауабын әрқашан тексеру керек."]
 ];
 var L=["А","Ә","Б","В"];
-var i=0,ans=[];
+var i=0,ans=[],submitted=false,sending=false;
 var $=function(id){return document.getElementById(id)};
 function correctCount(){var c=0;ans.forEach(function(a,k){if(a===Q[k][2])c++});return c}
+function sendResult(){
+ if(submitted)return;
+ submitted=true;sending=true;
+ $("sendName").value=$("studentName").value.trim();
+ $("sendClass").value=$("studentClass").value.trim();
+ $("sendScore").value=correctCount();
+ $("sendStatus").textContent="Нәтиже мұғалімге жіберіліп жатыр…";
+ try{$("resultForm").submit()}catch(e){sending=false;$("sendStatus").textContent="Жіберу сәтсіз аяқталды. Мұғалімге хабарлаңыз."}
+}
+$("resultFrame").addEventListener("load",function(){
+ if(sending){sending=false;$("sendStatus").textContent="Жіберу аяқталды. Мұғалім нәтижені кестеден тексерсін."}
+});
+$("start").onclick=function(){
+ var name=$("studentName").value.trim(),group=$("studentClass").value.trim();
+ if(!name||!group){$("identityError").textContent="Аты-жөніңді және сыныбыңды толтыр.";return}
+ $("identity").classList.add("hidden");document.querySelector(".quiz").classList.remove("hidden");
+ render();document.querySelector(".quiz").scrollIntoView();
+};
 function render(){
  var done=i>=Q.length;
  $("qa").classList.toggle("hidden",done);
@@ -107,6 +146,7 @@ function render(){
   var c=correctCount();
   $("score").textContent=c+" / "+Q.length;
   $("msg").textContent=c>=9?"Тамаша! Сен тақырыпты өте жақсы түсіндің.":c>=6?"Жақсы нәтиже! Қателескен сұрақтарды қайта қарап шық.":"Түсіндірмені қайта оқып, тестті тағы орындап көр.";
+  sendResult();
   $("next").disabled=true;$("next").textContent="Келесі сұрақ";return;
  }
  var q=Q[i],a=ans[i];
@@ -135,7 +175,7 @@ function render(){
 }
 $("next").onclick=function(){if(ans[i]!==undefined){i++;render();window.scrollTo(0,document.querySelector(".quiz").offsetTop-10)}};
 $("prev").onclick=function(){if(i>0){i--;render()}};
-$("reset").onclick=function(){i=0;ans=[];render()};
+$("reset").onclick=function(){i=0;ans=[];submitted=false;sending=false;$("sendStatus").textContent="";render()};
 render();
 </script>
 </body>
